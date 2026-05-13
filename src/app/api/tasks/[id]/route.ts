@@ -10,6 +10,7 @@ import {
   canEditTasks,
 } from "@/lib/auth";
 import { updateTaskSchema } from "@/schemas/task";
+import { recordActivity } from "@/lib/activity";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -39,6 +40,51 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       assignee: { select: { id: true, name: true, email: true } },
     },
   });
+
+  if (parsed.data.status && parsed.data.status !== existing.status) {
+  await recordActivity({
+    projectId: existing.projectId,
+    taskId: existing.id,
+    actorId: user.id,
+    type: "task_status_changed",
+    message: `${user.name} changed "${task.title}" from ${existing.status} to ${parsed.data.status}`,
+    metadata: {
+      from: existing.status,
+      to: parsed.data.status,
+    },
+  });
+}
+
+if (
+  Object.prototype.hasOwnProperty.call(parsed.data, "assigneeId") &&
+  parsed.data.assigneeId !== existing.assigneeId
+) {
+  const previousAssignee = existing.assigneeId
+    ? await prisma.user.findUnique({
+        where: { id: existing.assigneeId },
+        select: { name: true },
+      })
+    : null;
+
+  const nextAssignee = parsed.data.assigneeId
+    ? await prisma.user.findUnique({
+        where: { id: parsed.data.assigneeId },
+        select: { name: true },
+      })
+    : null;
+
+  await recordActivity({
+    projectId: existing.projectId,
+    taskId: existing.id,
+    actorId: user.id,
+    type: "task_assignee_changed",
+    message: `${user.name} changed assignee on "${task.title}" from ${previousAssignee?.name ?? "unassigned"} to ${nextAssignee?.name ?? "unassigned"}`,
+    metadata: {
+      fromAssigneeId: existing.assigneeId,
+      toAssigneeId: parsed.data.assigneeId ?? null,
+    },
+  });
+}
 
   return NextResponse.json({ task });
 }

@@ -10,6 +10,7 @@ import {
   getProjectMembership,
   canEditTasks,
 } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -77,6 +78,18 @@ export async function POST(req: NextRequest, { params }: Params) {
       author: { select: { id: true, name: true, email: true } },
     },
   });
+
+  await recordActivity({
+  projectId: task.projectId,
+  taskId,
+  actorId: user.id,
+  type: "comment_added",
+  message: `${user.name} commented on "${task.title}"`,
+  metadata: {
+    commentId: comment.id,
+    preview: comment.body.slice(0, 80),
+  },
+});
 
   return NextResponse.json({ comment }, { status: 201 });
 }
