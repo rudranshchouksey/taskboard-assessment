@@ -57,6 +57,19 @@ export default function ProjectPage({ params }: PageProps) {
       tasksByStatus[t.status].push(t);
     }
   }
+  type ApiActivity = {
+  id: string;
+  type: string;
+  message: string;
+  createdAt: string;
+  actor: { id: string; name: string; email: string };
+  task?: { id: string; title: string } | null;
+};
+
+const { data: activityData, isLoading: activityLoading } = useQuery({
+  queryKey: ["activity", id],
+  queryFn: () => apiFetch<{ activity: ApiActivity[] }>(`/api/projects/${id}/activity`),
+});
 
   return (
     <div className="min-h-screen">
@@ -147,6 +160,35 @@ export default function ProjectPage({ params }: PageProps) {
                 />
               ))}
             </div>
+
+            <section className="mt-8">
+  <div className="rounded-lg border border-border bg-surface p-4">
+    <h2 className="text-sm font-semibold mb-3">recent activity</h2>
+
+    {activityLoading && (
+      <p className="text-xs text-muted">loading activity…</p>
+    )}
+
+    {!activityLoading && (activityData?.activity?.length ?? 0) === 0 && (
+      <p className="text-xs text-muted italic">no activity yet.</p>
+    )}
+
+    {!!activityData?.activity?.length && (
+      <ul className="space-y-3">
+        {activityData.activity.map((item) => (
+          <li key={item.id} className="border border-border rounded-md bg-bg p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm">{item.message}</p>
+              <span className="text-xs text-muted whitespace-nowrap">
+                {new Date(item.createdAt).toLocaleString()}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</section>
 
             <section className="mt-10">
               <h2 className="text-sm font-medium mb-3">members</h2>
