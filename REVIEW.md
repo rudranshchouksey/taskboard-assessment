@@ -24,12 +24,12 @@ The app stores the session token in `window.localstorage` and reads it on every 
 
 **Recommended Fix;** Set the JWT as an `HTTPOnly`, `Secure`, `SameSize` cookie from the login route and authenticate server requests from that cookie instead of browser-readable storage
 
-##4 JWT stored in `local Storage`
+##4 `User.email` is not unique
 
-**File/Line** src/lib/api-client.ts
-**Category:** Security / Architecture
-**Severity:** High
+**File/Line** prisma/schema.prisma src/app/api/register/route.ts, src/app/api/login/route.ts 
+**Category:** Data Integrity
+**Severity:** Medium
 
-The app stores the session token in `window.localstorage` and reads it on every request.[page:1] If an XSS vulnerability is introduced anywhere in the app or a third part script is compromised, the token can be stolen directly which is why mordern Next.js security guidance prefers `HttpOnly` cookies session tokens,
+The database schema does not enforce `email` uniqueness, so duplicate user records can exists if two registrations race through the application-level pre-check. Once duplication exist, `login` uses `findFirst`, which means authentication may resolve to an arbitrary matching row instead of a guranteed single account.
 
-**Recommended Fix;** Set the JWT as an `HTTPOnly`, `Secure`, `SameSize` cookie from the login route and authenticate server requests from that cookie instead of browser-readable storage
+**Recommended Fix;** Add `@unique` to `User.email`, run a Prisma migration, and handle Prisma unique-costraint errors explicity in the register route.
