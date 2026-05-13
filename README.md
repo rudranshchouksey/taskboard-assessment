@@ -122,7 +122,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/projects
 
 ## Submission Notes
 
-- Video recording: https://www.loom.com/share/REPLACE_WITH_YOUR_LINK
+- Video recording: [https://www.loom.com/share/REPLACE_WITH_YOUR_LINK](https://drive.google.com/file/d/11fzHiRfSA5PdAiWpG1a_nhjV71ldenv9/view?usp=sharing)
 - Repository includes full commit history (not squashed)
 - Required deliverables included:
   - `REVIEW.md`
