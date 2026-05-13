@@ -24,7 +24,10 @@ yarn-error.log*
 
 # local env files
 .env.local
+<<<<<<< HEAD
 .env.example
+=======
+>>>>>>> f44481894696a1f2f9496aa7bfddb8e68ec5b52d
 .env.development.local
 .env.test.local
 .env.production.local

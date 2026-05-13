@@ -118,6 +118,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/projects
 - Tailwind CSS 3
 - bcryptjs + jsonwebtoken
 - Vitest 2 (testing)
+<<<<<<< HEAD
 
 ## Submission Notes
 
@@ -128,3 +129,5 @@ curl -H "Authorization: Bearer <token>" http://localhost:3000/api/projects
   - `TERMINAL_LOG.md`
   - Part 3c Airtable export with tests
   - Part 3a / Part 3b implementation with tests
+=======
+>>>>>>> f44481894696a1f2f9496aa7bfddb8e68ec5b52d
