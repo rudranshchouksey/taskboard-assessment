@@ -23,3 +23,13 @@
 The app stores the session token in `window.localstorage` and reads it on every request.[page:1] If an XSS vulnerability is introduced anywhere in the app or a third part script is compromised, the token can be stolen directly which is why mordern Next.js security guidance prefers `HttpOnly` cookies session tokens,
 
 **Recommended Fix;** Set the JWT as an `HTTPOnly`, `Secure`, `SameSize` cookie from the login route and authenticate server requests from that cookie instead of browser-readable storage
+
+##4 JWT stored in `local Storage`
+
+**File/Line** src/lib/api-client.ts
+**Category:** Security / Architecture
+**Severity:** High
+
+The app stores the session token in `window.localstorage` and reads it on every request.[page:1] If an XSS vulnerability is introduced anywhere in the app or a third part script is compromised, the token can be stolen directly which is why mordern Next.js security guidance prefers `HttpOnly` cookies session tokens,
+
+**Recommended Fix;** Set the JWT as an `HTTPOnly`, `Secure`, `SameSize` cookie from the login route and authenticate server requests from that cookie instead of browser-readable storage
