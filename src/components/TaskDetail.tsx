@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-client";
-import type { ApiTask, ApiProjectMember, TaskStatus } from "@/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch, getStoredUser } from "@/lib/api-client";
+import type {
+  ApiTask,
+  ApiProjectMember,
+  TaskStatus,
+  Role,
+  ApiComment,
+} from "@/types";
 import { STATUS_LABELS, STATUS_ORDER } from "@/types";
 
 type Props = {
@@ -15,11 +21,42 @@ type Props = {
 
 export function TaskDetail({ task, projectId, members, onClose }: Props) {
   const queryClient = useQueryClient();
+  const currentUser = getStoredUser();
+
+  const currentMembership =
+    members.find((m) => m.user.id === currentUser?.id) ?? null;
+  const currentRole: Role = currentMembership?.role ?? "viewer";
+  const canMutateTask = currentRole === "admin" || currentRole === "member";
+  const canPostComment = canMutateTask;
+
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [commentBody, setCommentBody] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  const { data: commentsData, isLoading: commentsLoading } = useQuery({
+    queryKey: ["comments", task.id],
+    queryFn: () =>
+      apiFetch<{ comments: ApiComment[] }>(`/api/tasks/${task.id}/comments`),
+  });
+
+  const postComment = useMutation({
+    mutationFn: (body: string) =>
+      apiFetch<{ comment: ApiComment }>(`/api/tasks/${task.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
+    onSuccess: async () => {
+      setCommentBody("");
+      setCommentError(null);
+      await queryClient.invalidateQueries({ queryKey: ["comments", task.id] });
+    },
+    onError: (err) =>
+      setCommentError(err instanceof Error ? err.message : "comment failed"),
+  });
 
   const updateTask = useMutation({
     mutationFn: (input: Partial<ApiTask>) =>
@@ -27,8 +64,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
         method: "PATCH",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "save failed"),
@@ -37,8 +74,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
   const deleteTask = useMutation({
     mutationFn: () =>
       apiFetch<{ ok: true }>(`/api/tasks/${task.id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "delete failed"),
@@ -54,17 +91,19 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
     });
   }
 
+  const comments = commentsData?.comments ?? [];
+
   return (
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-surface border border-border rounded-lg p-6"
+        className="w-full max-w-2xl bg-surface border border-border rounded-lg p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">edit task</h2>
+          <h2 className="text-lg font-semibold">task details</h2>
           <button onClick={onClose} className="text-muted hover:text-white">
             ✕
           </button>
@@ -76,7 +115,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            disabled={!canMutateTask}
+            className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
           />
         </label>
 
@@ -86,7 +126,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            disabled={!canMutateTask}
+            className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
           />
         </label>
 
@@ -96,7 +137,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as TaskStatus)}
-              className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              disabled={!canMutateTask}
+              className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
             >
               {STATUS_ORDER.map((s) => (
                 <option key={s} value={s}>
@@ -111,7 +153,8 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              disabled={!canMutateTask}
+              className="mt-1 block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
             >
               <option value="">unassigned</option>
               {members.map((m) => (
@@ -129,30 +172,102 @@ export function TaskDetail({ task, projectId, members, onClose }: Props) {
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          <button
-            onClick={() => deleteTask.mutate()}
-            disabled={deleteTask.isPending}
-            className="text-sm text-red-400 hover:text-red-300"
-          >
-            delete task
-          </button>
-          <div className="flex gap-2">
+        {canMutateTask && (
+          <div className="flex items-center justify-between gap-3 mb-6">
             <button
-              onClick={onClose}
-              className="text-sm px-4 py-2 rounded-md border border-border hover:border-muted"
+              onClick={() => deleteTask.mutate()}
+              disabled={deleteTask.isPending}
+              className="text-sm text-red-400 hover:text-red-300"
             >
-              cancel
+              delete task
             </button>
-            <button
-              onClick={onSave}
-              disabled={updateTask.isPending}
-              className="text-sm px-4 py-2 rounded-md bg-accent text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {updateTask.isPending ? "saving…" : "save"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="text-sm px-4 py-2 rounded-md border border-border hover:border-muted"
+              >
+                cancel
+              </button>
+              <button
+                onClick={onSave}
+                disabled={updateTask.isPending}
+                className="text-sm px-4 py-2 rounded-md bg-accent text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {updateTask.isPending ? "saving…" : "save"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        <section className="border-t border-border pt-5">
+          <h3 className="text-sm font-medium mb-3">comments</h3>
+
+          {commentsLoading && (
+            <p className="text-xs text-muted mb-3">loading comments…</p>
+          )}
+
+          {!commentsLoading && comments.length === 0 && (
+            <p className="text-xs text-muted italic mb-3">no comments yet.</p>
+          )}
+
+          {comments.length > 0 && (
+            <ul className="space-y-3 mb-4">
+              {comments.map((comment) => (
+                <li
+                  key={comment.id}
+                  className="bg-bg border border-border rounded-md p-3"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">
+                      {comment.author.name}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {new Date(comment.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canPostComment ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!commentBody.trim()) return;
+                postComment.mutate(commentBody.trim());
+              }}
+              className="space-y-2"
+            >
+              <textarea
+                value={commentBody}
+                onChange={(e) => setCommentBody(e.target.value)}
+                placeholder="add a comment..."
+                rows={3}
+                className="block w-full rounded-md bg-bg border border-border px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              />
+              {commentError && (
+                <p className="text-xs text-red-400" role="alert">
+                  {commentError}
+                </p>
+              )}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={postComment.isPending || !commentBody.trim()}
+                  className="text-sm px-4 py-2 rounded-md bg-accent text-white hover:bg-indigo-500 disabled:opacity-50"
+                >
+                  {postComment.isPending ? "posting…" : "post comment"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-xs text-muted italic">
+              viewers can read comments but cannot post.
+            </p>
+          )}
+        </section>
       </div>
     </div>
   );
